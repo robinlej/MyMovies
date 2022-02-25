@@ -1,10 +1,9 @@
-const omdbApiKey = '*******'
-
 const movieContainer = document.querySelector('.search-results-container')
 const searchBtn = document.querySelector('.search-btn')
 const loadMoviesbtn = document.querySelector('.load-saved-movies')
 const searchInput = document.querySelector('.searchbox')
 
+// Create the card (HTML structure) for each movie
 const createCard = (movie) => {
   let movieCard = `
   <section id="${movie.imdbID}" class="card">
@@ -31,6 +30,7 @@ const createCard = (movie) => {
     movieContainer.insertAdjacentHTML('beforeend', movieCard)
 }
 
+// Prepares an object movieEntry to pass to the DB & adds an event listener on the button to Add to the DB
 const allowMovieEntry = (movie) => {
   const movieEntry = {
     title: movie.Title,
@@ -56,28 +56,35 @@ const allowMovieEntry = (movie) => {
   addEventListenerOnActionBtn(cardActionBtn, 'add', movieEntry)
 }
 
+/**
+ * API fetch done in the backend to protect the API key
+ * @param {object} movie - object {search: ...} to call the API
+ * @returns {array} data - array of objects
+ */
+const fetchFromOMDB = async (movie) => {
+  const response = await fetch('api/fetchfromomdb', {
+    method: 'POST', // or 'PUT'
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(movie),
+  })
+  const data = await response.json()
+  return await data
+}
 
-const searchMovies = (movie) => {
+// Launch the search
+const searchMovies = async (movie) => {
   movieContainer.innerHTML = ""
 
-  fetch(`http://www.omdbapi.com/?s=${movie}&apikey=${omdbApiKey}&`)
-    .then(response => response.json())
-    .then((data) => {
-      data.Search.forEach(movie => {
-        if (movie.Type === 'movie') {
-          const movieID = movie.imdbID
-  
-          fetch(`http://www.omdbapi.com/?i=${movieID}&apikey=${omdbApiKey}`)
-          .then(response => response.json())
-          .then((movieInfos) => {
-            createCard(movieInfos)
-            allowMovieEntry(movieInfos)
-          })
-        }
-    })
+  const moviesInfos = await fetchFromOMDB({search: movie})
+  moviesInfos.forEach(movieInfos => {
+    createCard(movieInfos)
+    allowMovieEntry(movieInfos)
   })
 }
 
+// Prepare the element container, inserts the cards fetched from the DB, add an event listener on the button of each card & adds the content of the button  
 const getFromDB = () => {
   fetch('api/movie', {
     method: 'GET',
@@ -89,9 +96,9 @@ const getFromDB = () => {
   .then(data => {
     movieContainer.innerHTML = ''
 
-    data.data.forEach(movie => {
+    data.forEach(movie => {
       createCard(movie)
-
+      
       const cardActionBtns = movieContainer.querySelectorAll('.card-action')
       const cardActionBtn = cardActionBtns[cardActionBtns.length - 1] // select the last button created
       cardActionBtn.textContent = 'Delete from my list'
@@ -103,6 +110,7 @@ const getFromDB = () => {
   })
 }
 
+// Add an object to the DB
 const addToDB = (infos) => {
   fetch('api/addmovie', {
     method: 'POST', // or 'PUT'
@@ -120,6 +128,7 @@ const addToDB = (infos) => {
   });
 }
 
+// Deletes an object from the DB
 const deleteFromDB = (infos) => {
   fetch('api/deletemovie', {
     method: 'POST', // or 'PUT'
@@ -156,7 +165,7 @@ const addEventListenerOnActionBtn = (btn, action, objectItem) => {
   const innerText = action === 'add' ? 'Added to my list' : 'Deleted from my list'
 
   btn.addEventListener('click', () => {
-      dbAction({data: objectItem})
+      dbAction(objectItem)
       btn.classList.add(classAddedToBtn)
       btn.textContent = innerText
   })
